@@ -1,4 +1,14 @@
+Užduotį atliko: Lukas Pupelis 2110612.
+
+Klasių rinkinys: Zebras (zebra), Medūza (jellyfish), Žąsis(goose).
+
+Nuotraukų įkėlimui naudojame OpenImages biblioteką.
+
 !pip install openimages
+
+
+Importuojam bibliotekas
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -6,30 +16,36 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
+from sklearn.model_selection import train_test_split
 
 import numpy as np
 import PIL
 
-# Check if GPU is available
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+Tikrinam, ar veikia GPU, jei ne, imam CPU.
 
-# Set up dataset directory, number of samples per class, and class names
-train_data_dir = "train_data"
-test_data_dir = "test_data"
+torch.cuda.is_available()
+
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device
+
+Nustatome aplanko pavadinimą, nuotraukų kiekį klasėje ir klasių pavadinimus. Klasių ID imti iš https://deeplearning.cms.waikato.ac.nz/user-guide/class-maps/IMAGENET/
+
+data_dir = "data"
 number_for_samples = 600
 classes = ["Goose", "Zebra", "Jellyfish"]
 class_ids = [99, 340, 107]
 
-# Create directories for train and test datasets if they don't exist
-for data_dir in [train_data_dir, test_data_dir]:
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
+Sukuriamas aplankas nuotraukoms.
 
-# Download images for train and test datasets
-print("Downloading train dataset...")
-download_dataset(train_data_dir, classes, limit=number_for_samples)
-print("Downloading test dataset...")
-download_dataset(test_data_dir, classes, limit=number_for_samples)
+if not os.path.exists(data_dir):
+    os.makedirs(data_dir)
+
+Jos atsisiunčiamos.
+
+print("Downloading is starting...")
+download_dataset(data_dir, classes, limit=number_for_samples)
+
+Transformacijos
 
 # Define transformations for image preprocessing
 transform = transforms.Compose([
@@ -39,13 +55,19 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-# Create datasets for train and test
-train_dataset = datasets.ImageFolder(root=train_data_dir, transform=transform)
-test_dataset = datasets.ImageFolder(root=test_data_dir, transform=transform)
+Duomenų pakrovimas ir duomenų aibės skėlimas į dvi dalis(testavimo ir vertinimo)
 
-# Create data loaders for train and test datasets
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True)
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=64, shuffle=False)
+# Load the dataset
+dataset = datasets.ImageFolder(root=data_dir, transform=transform)
+
+# Split the dataset into train and test subsets
+train_dataset, test_dataset = train_test_split(dataset, test_size=0.5, random_state=42)
+
+# Create data loaders for train and test subsets
+train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
+
+Modelio apibrėžimas
 
 # Define the CNN model
 class CNN(nn.Module):
@@ -64,6 +86,8 @@ class CNN(nn.Module):
         x = torch.relu(self.fc1(x))
         x = self.fc2(x)
         return x
+
+Modelio inicializavimas ir jo treniravimas
 
 # Instantiate the model
 model = CNN().to(device)
@@ -87,7 +111,9 @@ for epoch in range(epochs):
         running_loss += loss.item()
     print(f"Epoch {epoch + 1}/{epochs}, Loss: {running_loss}")
 
-    # Evaluation on train dataset
+Testavimas su abiejais duomenų rinkiniais.
+
+ # Evaluation on train dataset
     model.eval()
     train_predictions = []
     train_targets = []
